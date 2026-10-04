@@ -1,0 +1,28 @@
+{
+  "name": "agentin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Agentin SDK development repository",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "npm ci --prefix mcp-hub && npm ci --prefix agent-engine && npm ci",
+    "build": "tsc -b",
+    "test": "npm test --prefix mcp-hub && npm test --prefix agent-engine && npm run test:sdk",
+    "check": "npm run build && npm test",
+    "smoke": "npm run build && node examples/basic.cjs",
+    "test:sdk": "npm run build && tsc -p tsconfig.tests.json && vitest run tests/integration/agentin.test.ts"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "agent-engine": "file:./agent-engine",
+    "mcp-hub": "file:./mcp-hub"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "2.1.9",
+    "@types/node": "22.20.4"
+  }
+}

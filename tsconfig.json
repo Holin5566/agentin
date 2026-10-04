@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "CommonJS", "moduleResolution": "node",
+    "strict": true, "esModuleInterop": true, "skipLibCheck": true,
+    "rootDir": "src", "outDir": "dist", "declaration": true,
+    "composite": true, "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo", "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "references": [{ "path": "agent-engine" }, { "path": "mcp-hub" }]
+}

@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "composite": false, "declaration": false, "noEmit": true, "rootDir": "." },
+  "include": ["tests/integration/**/*.ts"]
+}
