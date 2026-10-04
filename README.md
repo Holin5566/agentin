@@ -1,14 +1,51 @@
 # Agentin
 
-Agentin 是開發中的 TypeScript 開源 SDK，讓應用定義不同角色的 agent，透過共用介面派發任務，接入不同執行器與工具。
+**The right agent for every step.**
 
-應用整合 agent 時，往往需要自行處理各家執行器的事件、工具權限、取消、逾時與結果。Agentin 將這些接線集中管理，讓 Terminal、Web 與業務服務能專注在自己的流程。
+Agentin 是開發中的 TypeScript 開源 SDK，讓開發者在多步驟 SOP 中，依任務需求配置不同 agent、模型、runtime 與工具，透過一致的介面執行任務並取得結果。
+
+一段流程中的資料擷取、分類、推理與程式修改，往往需要不同能力。Agentin 的目標是降低混用這些能力的整合成本：讓專門模型處理例行工作，讓強模型處理關鍵判斷，並集中處理事件、工具接入、取消、逾時與程序清理。
+
+## 為什麼使用 Agentin
+
+如果流程只呼叫一個模型，直接使用原本的 SDK 通常就足夠。當應用需要混用模型 API、CLI agent 與 MCP 工具，而且持續調整各步驟配置時，Agentin 提供共用的執行契約，減少重複接線。
+
+- **按步驟選擇 agent**：角色指示、runtime 與工具範圍分別配置；單次執行可以覆寫 runtime 與模型。
+- **共用執行管理**：統一取得事件、結果、usage 與產物，處理取消、逾時和清理。
+- **接入應用工具**：透過函式工具與 MCP，把既有業務能力提供給指定 agent。
+- **保留取捨空間**：由宿主程式決定順序、平行處理、結果驗證與失敗升級，依實際表現調整模型配置。
+
+模型配置是否省成本、token 或時間，取決於工作量、硬體、結果品質與重試次數，需要實測。Agentin 提供執行與整合基礎；目前沒有自動模型路由、成本計價或流程最佳化功能。
+
+## 使用情境：混合模型的 SOP
+
+例如處理一批圖片，可以將工作拆成：
+
+| 步驟 | 執行方式 | 交接內容 |
+|---|---|---|
+| 擷取圖片欄位 | 地端專門視覺模型 | 所需欄位與辨識結果 |
+| 驗證格式與完整度 | 一般程式 | 合格資料或待處理問題 |
+| 分析例外 | 強模型 agent | 判斷與處理建議 |
+| 修改處理程式 | coding agent runtime | 修改結果與驗證證據 |
+
+這是目標使用情境，並非目前已完成的讀圖範例。現有 `run.input` 是文字；圖片輸入、多模態交接與結構化驗收仍需另外設計。宿主現在可以用一般 TypeScript 程式碼串接文字任務，不需要先採用一套工作流 DSL。
 
 ## 專案狀態
 
-Engine／Hub 已搬入，可獨立建置並通過 499 個底層無模型測試，另有 15 個 SDK 整合測試。Engine 已有一次 take 的執行、事件、取消、逾時與產物管理；Hub 已有允許清單、MCP 路由、builtin schema 驗證與完整結果介面。Agentin 已提供 `defineAgent()`、`createAgentin()`、`run()`、`close()` 與 Claude CLI／OpenCode／Vercel AI runtime 註冊。函式工具橋接、session 與聊天／瀏覽器產品範例尚未實作。第一版包含 Claude CLI、Vercel AI 與 OpenCode；session 留到最後再評估是否加入。
+目前是開發中的 alpha，尚未發布 npm。`agent-engine/` 與 `mcp-hub/` 直接嵌在 repo 根目錄，以 private package 管理本機相依與建置。
 
-`agent-engine/` 和 `mcp-hub/` 直接嵌在 repo 根目錄，目前只使用 private package 管理本機相依與建置，不做 registry 發布。正式交付前再驗證建置、安裝與公開型別；不將規劃功能列為已完成。
+| 能力 | 目前狀態 |
+|---|---|
+| Agent 定義與派發 | 已提供 `defineAgent()`、`createAgentin()`、`run()`、`close()` |
+| Runtime | 已有 Claude CLI、OpenCode、Vercel AI adapter |
+| 工具 | 已有 MCP 路由、允許清單、schema 驗證與 `defineTool()` 函式橋接 |
+| 執行管理 | 已有事件、取消、逾時、錯誤分類、輸出解析與產物 |
+| 範例 | 已有本機 echo、單次 CLI 問答與模型 API 問答 |
+| SOP 編排 | 由宿主程式串接；尚無內建 workflow、交接驗證或自動升級 |
+| 對話與多模態 | 尚無 session 管理或公開圖片輸入介面 |
+| 對外交付 | 乾淨安裝、來源授權與真實 runtime 驗收仍待完成 |
+
+測試包含模擬模型端點、替代 CLI 程序與真正跨程序的 MCP 呼叫。這些驗證涵蓋 SDK 與底層契約，不代表真實模型的品質或所有 CLI 權限行為已完成驗收。最新結果以 `npm run check` 為準。
 
 ## 底層開發
 
@@ -27,18 +64,9 @@ npm run smoke
 
 ## 第一版範圍
 
-| 能力 | 目標 |
-|---|---|
-| Agent 定義與派發 | 角色指示、工具範圍與 runtime 選擇 |
-| 執行器 | Claude CLI、OpenCode、Vercel AI |
-| 工具 | 宿主函式、外部 MCP、參數驗證與明確允許清單 |
-| 執行契約 | 事件、取消、逾時、錯誤分類、輸出解析與產物 |
-| 對話（待評估） | 最後再決定是否加入 session |
-| Terminal 範例 | 多輪聊天、工具進度、停止、新對話與退出 |
-| 瀏覽器範例 | 使用 MCP 探索頁面，保存可驗收的探索證據 |
-| 驗證 | 無模型的契約測試、可選的真實 runtime 驗證；交付時加入乾淨安裝與型別驗證 |
+第一版聚焦於可被宿主流程組合的單步 agent 執行：角色與工具宣告、runtime 選擇、事件、取消、逾時、結果與清理。
 
-瀏覽器探索後產生 Playwright 腳本與重跑驗收是後續範例延伸，不作為底層 SDK 的內建業務流程。
+接下來優先驗證真實 runtime、完成終端聊天與多步驟 SOP 範例，並收斂公開 API。結構化交接、資源比較、圖片輸入與 session 依實際範例需求評估。瀏覽器探索及 Playwright 腳本生成由範例或宿主流程實作。
 
 ## 使用方式
 
@@ -73,11 +101,37 @@ try {
 
 範例需放在 async 函式內執行。本機使用 `require('./dist')`，尚未發布 npm；上面的套件 import 適用於本機相依整合。可執行範例見 [examples/basic.cjs](examples/basic.cjs)：`npm run smoke` 使用本機 echo runtime；明確執行 `node examples/basic.cjs --claude` 才會使用已安裝並授權的 Claude CLI。
 
-Agent 是角色與能力宣告；runtime 是執行方式。切換 runtime 前須驗證能力相容，不承諾不同執行器行為完全相同。runtime 選擇順序為單次 `run.runtime` → agent 的 `runtime` → `defaultRuntime`。SDK 的原生檔案與 shell 權限預設關閉，必須用 `capabilities` 明確開啟。工具目前接受 Hub 路由物件或 ID；宿主函式橋接尚未實作。
+Agent 是角色與能力宣告；runtime 是執行方式。切換 runtime 前須驗證能力相容，不承諾不同執行器行為完全相同。runtime 選擇順序為單次 `run.runtime` → agent 的 `runtime` → `defaultRuntime`。SDK 的原生檔案與 shell 權限預設關閉，必須用 `capabilities` 明確開啟。工具接受 SDK `defineTool()` 的宿主函式、Hub 路由物件或 ID。
 
-`run()` 支援 `signal`、`onEvent`、`timeoutMs`、`model`、`maxOutputBytes` 與 `parseOutput`。結果包含 runtime 名称以及 Engine 的狀態、stopReason、usage、產物與 cleanup。設定錯誤 reject `EngineError`；執行與能力失敗依結果模型回報。`close()` 取消所有進行中的工作，重複呼叫回同一份關閉 Promise。
+`run()` 支援 `signal`、`onEvent`、`timeoutMs`、`model`、`maxOutputBytes` 與 `parseOutput`。結果包含 runtime 名稱以及 Engine 的狀態、stopReason、usage、產物與 cleanup。設定錯誤 reject `EngineError`；執行與能力失敗依結果模型回報。`close()` 取消所有進行中的工作，重複呼叫回同一份關閉 Promise。
 
 Session 留到最後再評估是否加入；Terminal UI 由宿主負責。
+
+## 宿主函式工具
+
+```ts
+import { defineTool, defineAgent } from 'agentin';
+
+const greet = defineTool({
+  id: 'greet',
+  description: '向使用者打招呼',
+  inputSchema: {
+    type: 'object', properties: { name: { type: 'string' } },
+    required: ['name'], additionalProperties: false,
+  },
+  execute: async (args, { signal, agent, runId }) => {
+    signal.throwIfAborted();
+    return `你好，${args.name}！`;
+  },
+});
+const assistant = defineAgent({ id: 'assistant', instructions: '使用 greet 工具。', tools: [greet] });
+```
+
+函式與 closure 留在宿主；每次 run 開啟獨立憑證的 loopback HTTP 端點，經 stdio MCP proxy 與 Hub 允許清單接入 runtime。參數在執行前按 JSON Schema 驗證，支援文字或完整 MCP CallToolResult。已知工具失敗可 throw `ToolFailure`，取消由 `context.signal` 傳遞；忽略 signal 的宿主函式仍可能繼續執行。
+
+`context.agent` 是 agent ID；`context.runId` 是 SDK 橋接 ID，與 Engine takeId 不同。任務結束或 SDK close 時撤銷端點；憑證不放 argv，臨時連線設定檔限制存取並隨任務移除。JSON 參數大小上限為 1 MiB。
+
+可與外部 MCP 工具混用，且不會修改宿主 manifests。範例見 [examples/function-tool.cjs](examples/function-tool.cjs)。真實 Claude／OpenCode 的函式橋接仍待已安裝、授權環境驗證；無模型測試已覆蓋 AI runner 與 Hub 的實際跨程序路徑。
 
 ## Claude CLI 與 OpenCode runtime
 
@@ -133,11 +187,14 @@ agentin/
 │   ├── agent.ts                 純 Agent 定義
 │   ├── runtimes/                runtime adapter 與能力映射的整合
 │   ├── tools/                   函式工具、MCP 引用與宿主橋接
-│   ├── sessions/                可選對話管理
+│   ├── sessions/                保留目錄：對話管理待評估
 │   └── index.ts                 公開 API
 ├── agent-engine/                一次 take 的執行與結果管理
 ├── mcp-hub/                     工具允許清單、路由與上游連線
 ├── examples/
+│   ├── basic.cjs                本機 echo／Claude 單次執行
+│   ├── cli.cjs                  Claude／OpenCode 單次執行
+│   ├── vercel-ai.cjs            模型 API 單次執行
 │   ├── terminal-chat/           規劃：自己的 Terminal 聊天
 │   └── browser-explorer/        規劃：瀏覽器探索與證據
 ├── tests/integration/           SDK 與底層整合驗證
@@ -148,7 +205,7 @@ agentin/
 └── README.md
 ```
 
-SDK 公開入口與 `examples/basic.cjs` 已實作，函式工具、session 與產品範例的空目錄仍使用 `.gitkeep` 保留。Engine／Hub 已有實際程式與模組測試。Engine 的 adapter 實作歸 Engine；`src/runtimes/` 負責對外設定與註冊，避免重複維護兩套 adapter。
+SDK 公開入口、函式工具橋接與單次執行範例已實作；session 與產品範例尚未實作。Engine／Hub 已有實際程式與模組測試。Engine 的 adapter 實作歸 Engine；`src/runtimes/` 負責對外設定與註冊，避免重複維護兩套 adapter。
 
 ## 架構
 
@@ -159,7 +216,8 @@ Terminal／Web／業務服務
             ↓
        Agent Engine
       ├── Claude CLI
-      └── OpenCode
+      ├── OpenCode
+      └── Vercel AI runner
             ↓ 工具接入依 adapter 能力驗證
          MCP Hub
             ↓
@@ -174,7 +232,7 @@ MCP Hub 的工具邊界必須由 adapter 真正接入執行器並驗證；不能
 - 明確區分執行成功、輸出合格與業務驗收成功。
 - Fallback 預設關閉；已產生副作用的任務不得因一般錯誤自動重播。
 - 不隱含共用對話；資源所有權、取消限制與清理結果需明確。
-- 業務 workflow、平台登入與任務驗收由宿主負責。
+- SOP 編排、步驟交接、平台登入與業務驗收由宿主負責；需要重試或升級時由宿主明確決定。
 
 參考設計來自 Guardian 的執行管理與 JackIn 的函式工具接入。公開程式前須確認來源授權與可公開範圍；範例使用通用資料，不含公司憑證、內部網址或業務紀錄。授權與貢獻規範待公開前確認。
 

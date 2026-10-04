@@ -12,7 +12,7 @@
     "test": "npm test --prefix mcp-hub && npm test --prefix agent-engine && npm run test:sdk",
     "check": "npm run build && npm test",
     "smoke": "npm run build && node examples/basic.cjs",
-    "test:sdk": "npm run build && tsc -p tsconfig.tests.json && vitest run tests/integration/agentin.test.ts"
+    "test:sdk": "npm run build && tsc -p tsconfig.tests.json && vitest run tests/integration"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

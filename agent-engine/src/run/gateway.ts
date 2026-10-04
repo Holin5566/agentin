@@ -13,7 +13,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { GATEWAY_SERVER_NAME } from '../shared/names.js';
-import type { ToolDecl } from 'mcp-hub';
+import type { ToolDecl, ServerDecl } from 'mcp-hub';
 import { EngineError } from '../types.js';
 
 /**
@@ -36,6 +36,7 @@ const NO_GATEWAY: GatewaySession = { close: () => {} };
 
 export interface OpenGatewayOpts {
   toolDefinitions?: ToolDecl[];
+  servers?: ServerDecl[];
   agentId: string;
   /** agent manifest 的 `tools`。空陣列或 undefined = 不開 gateway。 */
   tools?: string[];
@@ -61,6 +62,12 @@ export function openGatewayConfig(o: OpenGatewayOpts): GatewaySession {
     const routePath = join(dir, 'tools.json');
     writeFileSync(routePath, JSON.stringify(o.toolDefinitions), { encoding: 'utf8', mode: 0o600 });
     args.push('--tool-definitions', routePath);
+  }
+
+  if (o.servers?.length) {
+    const serverPath = join(dir, 'servers.json');
+    writeFileSync(serverPath, JSON.stringify(o.servers), { encoding: 'utf8', mode: 0o600 });
+    args.push('--server-definitions', serverPath);
   }
 
   // 只帶明確要給的,不把整包 process.env 複製進設定檔 —— 那會把憑證寫進

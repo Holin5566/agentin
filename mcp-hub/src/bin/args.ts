@@ -15,13 +15,14 @@ import { scopeForTools, scopeUnrestricted, type Scope } from '../manifest/scope.
 export interface Args {
   /** Serialized code-defined routes, without credentials or server connection data. */
   toolDefinitions?: string;
+  serverDefinitions?: string;
   /** 明確指定的對外 tool id。 */
   tools?: string[];
   /** 開發用:不限制工具。必須明寫,不能靠「什麼都不給」達成。 */
   allTools?: boolean;
 }
 
-const FLAGS = ['--tools', '--all-tools', '--tool-definitions'] as const;
+const FLAGS = ['--tools', '--all-tools', '--tool-definitions', '--server-definitions'] as const;
 
 /**
  * 二選一,而且**必須擇一**。
@@ -51,7 +52,10 @@ export function parseArgs(argv: string[]): Args {
     }
     const v = argv[i + 1];
     const hasValue = v !== undefined && !v.startsWith('--');
-    if (a === '--tool-definitions') {
+    if (a === '--server-definitions') {
+      if (!hasValue) throw new Error('--server-definitions requires a file path');
+      out.serverDefinitions = v; i++;
+    } else if (a === '--tool-definitions') {
       if (!hasValue) throw new Error('--tool-definitions requires a file path');
       out.toolDefinitions = v; i++;
     } else if (a === '--tools') {
@@ -120,7 +124,9 @@ export function parseCheckArgs(argv: string[]): CheckArgs {
 export function resolveScope(args: Args): Scope {
   const definitions = args.toolDefinitions ? JSON.parse(readFileSync(args.toolDefinitions, 'utf8')) : undefined;
   if (definitions !== undefined && !Array.isArray(definitions)) throw new Error('tool definitions must be an array');
-  const catalog = loadCatalog(undefined, definitions);
+  const servers = args.serverDefinitions ? JSON.parse(readFileSync(args.serverDefinitions, 'utf8')) : [];
+  if (!Array.isArray(servers)) throw new Error('server definitions must be an array');
+  const catalog = loadCatalog(undefined, definitions, servers);
   if (args.allTools) return scopeUnrestricted(catalog);
   return scopeForTools(args.tools!, catalog);
 }

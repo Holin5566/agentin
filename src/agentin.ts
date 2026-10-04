@@ -1,3 +1,8 @@
+import { join } from 'node:path';
+import { loadCatalog } from 'mcp-hub';
+import { openToolBridge } from './tools/bridge.js';
+import type { FunctionTool } from './tools/tool.js';
+import type { ToolDecl } from 'mcp-hub';
 import { createAgentEngine, EngineError } from 'agent-engine';
 import type { Engine, EngineConfig, RunEvent, SpawnRuntime, TakeResult, TakeSpec } from 'agent-engine';
 import { defineAgent, engineAgent } from './agent.js';
@@ -17,7 +22,7 @@ export interface AgentinConfig {
   allowExperimentalRuntime?: boolean;
 }
 
-export type RunOptions = Omit<TakeSpec, 'agent' | 'prompt'> & {
+export type RunOptions = Omit<TakeSpec, 'agent' | 'prompt' | 'servers'> & {
   agent: string;
   input: string;
   runtime?: string;
@@ -68,6 +73,8 @@ export function createAgentin(config: AgentinConfig): Agentin {
     allowExperimentalRuntime: config.allowExperimentalRuntime,
   };
   const engines = new Map<string, Engine>();
+  const bridges = new Set<Awaited<ReturnType<typeof openToolBridge>>>();
+  const active = new Map<AbortController, Promise<void>>();
   let closed = false;
   let closing: Promise<void> | undefined;
 
@@ -80,26 +87,68 @@ export function createAgentin(config: AgentinConfig): Agentin {
       const name = options.runtime ?? agent.runtime ?? defaultRuntime;
       const runtime = runtimes.get(name);
       if (!runtime) throw new EngineError('config', `unknown runtime: ${name}`);
+      const startedAt = Date.now();
       budget(options.timeoutMs, 'timeoutMs');
       budget(options.maxOutputBytes, 'maxOutputBytes');
-      let engine = engines.get(name);
-      if (!engine) {
-        engine = createAgentEngine({ ...engineConfig, runtime });
-        engines.set(name, engine);
+      const lifetime = new AbortController();
+      const onAbort = () => lifetime.abort();
+      options.signal?.addEventListener('abort', onAbort, { once: true });
+      if (options.signal?.aborted) onAbort();
+      let settled!: () => void;
+      active.set(lifetime, new Promise<void>(resolve => { settled = resolve; }));
+      let bridge: Awaited<ReturnType<typeof openToolBridge>> | undefined;
+      try {
+        const functions = agent.tools.filter((tool): tool is FunctionTool => typeof tool === 'object' && 'kind' in tool && tool.kind === 'function');
+        if (functions.length) {
+          bridge = await openToolBridge(functions, agent.id, lifetime.signal);
+          bridges.add(bridge);
+        }
+        const routes: (ToolDecl | string)[] = agent.tools.map(tool => {
+          if (typeof tool === 'object' && 'kind' in tool) return bridge!.routes.find(route => route.id === tool.id)!;
+          if (bridge && typeof tool === 'string') {
+            const route = loadCatalog(join(engineConfig.root!, 'manifests', 'mcp-servers')).tools.find(route => route.id === tool);
+            if (!route) throw new EngineError('config', `unknown MCP tool: ${tool}`);
+            return route;
+          }
+          return tool;
+        });
+        let engine = engines.get(name);
+        if (!engine) {
+          engine = createAgentEngine({ ...engineConfig, runtime });
+          engines.set(name, engine);
+        }
+        const { agent: _agent, input, runtime: _runtime, ...take } = options;
+        const prompt = agent.instructions ? `${agent.instructions}\n\n${input}` : input;
+        const timeoutMs = take.timeoutMs ?? engineConfig.defaults?.timeoutMs;
+        const result = await engine.runTake({ ...take, startedAt: take.startedAt ?? startedAt, timeoutMs,
+          signal: lifetime.signal, agent: engineAgent(agent, routes), prompt,
+          ...(bridge ? { servers: [bridge.server] } : {}),
+        });
+        return { ...result, runtime: name };
+      } finally {
+        lifetime.abort();
+        options.signal?.removeEventListener('abort', onAbort);
+        try { await bridge?.close(); }
+        finally { if (bridge) bridges.delete(bridge); active.delete(lifetime); settled(); }
       }
-      const { agent: _agent, input, runtime: _runtime, ...take } = options;
-      // Engine receives a complete prompt; role composition belongs to this SDK layer.
-      const prompt = agent.instructions ? `${agent.instructions}\n\n${input}` : input;
-      const result = await engine.runTake({ ...take, agent: engineAgent(agent), prompt });
-      return { ...result, runtime: name };
     },
     close(): Promise<void> {
       if (closing) return closing;
       closed = true;
-      closing = Promise.allSettled([...engines.values()].map(engine => engine.close())).then(results => {
+      for (const lifetime of active.keys()) lifetime.abort();
+      closing = (async () => {
+        await Promise.allSettled([...bridges].map(bridge => bridge.close()));
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            Promise.all([...active.values()]),
+            new Promise<void>(resolve => { timer = setTimeout(resolve, 10000); }),
+          ]);
+        } finally { if (timer) clearTimeout(timer); }
+        const results = await Promise.allSettled([...engines.values()].map(engine => engine.close()));
         const failures = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected');
         if (failures.length) throw new AggregateError(failures.map(result => result.reason), 'engine shutdown failed');
-      });
+      })();
       return closing;
     },
   };

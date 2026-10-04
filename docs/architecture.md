@@ -2,7 +2,7 @@
 
 ## 原則與現況
 
-Agentin 是對外整合層，不只是 repo 名稱。底下保留 `agent-engine/`、`mcp-hub/`，先以 private 本機套件嵌入，不發布。此文件描述目標架構。Engine／Hub 已搬入並通過本機建置與無模型測試；SDK 的 agent 定義、runtime 註冊、run／close 與 Claude CLI／OpenCode／Vercel AI runtime 包裝已實作；函式橋接待完成，session 最後再評估。
+Agentin 是對外整合層，不只是 repo 名稱。底下保留 `agent-engine/`、`mcp-hub/`，先以 private 本機套件嵌入，不發布。此文件描述目標架構。Engine／Hub 已搬入並通過本機建置與無模型測試；SDK 的 agent 定義、runtime 註冊、run／close 與 Claude CLI／OpenCode／Vercel AI runtime 包裝已實作；函式橋接已完成，session 最後再評估。
 
 以 ai-guardianbot 的新版 Engine、Hub 與 runtime 路由設計為底層依據，參考 agent-studio（JackIn）的函式工具、宿主橋接與可選對話管理。兩邊底層版本不同，不整份複製；Guardian 的 code-defined agent／工具路由與 AI SDK loop 應保留。
 
@@ -36,8 +36,8 @@ close 立即停止接受執行，取消所有已建立 Engine 的進行中工作
 ## 現有底層與目標介面的差異
 
 - Engine 現有入口為 `createAgentEngine()`／`runTake()`；Agentin 的 `run()` 組裝角色 instructions 與 input，委派給所選 runtime 的 Engine。
-- Hub `defineTool()` 是可序列化路由定義；宿主函式使用 `BuiltinTool.execute(args, signal)`，與下列目標 SDK 介面不同。
-- Hub in-memory builtin 支援 schema 驗證與完整 MCP 結果；Engine 子程序不能直接接收 JS 函式，需 stdio server。ToolBridge 尚未接入。
+- Hub `defineTool()` 是可序列化路由定義；宿主函式使用 `BuiltinTool.execute(args, signal)`；SDK `defineTool()` 使用 `execute(args, context)`，橋接後走同一 Hub 邊界。
+- Hub in-memory builtin 支援 schema 驗證與完整 MCP 結果；Engine 子程序不能直接接收 JS 函式，需 stdio server。SDK ToolBridge 已接入，以 per-run loopback 端點與 stdio proxy 保留宿主函式。
 - 保留來源版 Claude、AI SDK runner 與 experimental Codex；OpenCode adapter 已實作，真實 CLI 隔離待此 repo 驗證。
 - Engine AgentManifest 保留來源相容欄位；公開 SDK 角色介面將由整合層收斂。
 

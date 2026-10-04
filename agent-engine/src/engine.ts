@@ -152,7 +152,7 @@ export function createAgentEngine(config: EngineConfig = {}): Engine {
       toolDefinitions = collectTools([spec.agent], runtime);
       agent = buildRegistry({
         manifestDir: join(root, 'manifests'), runtime, inline: [spec.agent], inlineOnly: true,
-        agentIds: [agentId], catalog: () => loadCatalog(join(root, 'manifests', 'mcp-servers'), toolDefinitions),
+        agentIds: [agentId], catalog: () => loadCatalog(join(root, 'manifests', 'mcp-servers'), toolDefinitions, spec.servers),
       }).get(agentId);
     } catch (e) {
       if (e instanceof EngineError && e.kind === 'capability') {
@@ -216,6 +216,7 @@ export function createAgentEngine(config: EngineConfig = {}): Engine {
       gateway = gateways.acquire({
         agentId: agent.id,
         toolDefinitions,
+        servers: spec.servers,
         root,
         ...(agent.tools ? { tools: agent.tools } : {}),
         ...(env ? { env } : {}),

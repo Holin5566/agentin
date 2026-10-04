@@ -42,7 +42,7 @@ try {
 
 原生工具權限需明確傳 `capabilities`；省略保留來源版的原生工具預設行為。`tools: []` 只代表沒有 Hub 工具，不會自動關閉原生工具。Claude 的 `workspace-write` 是工具名單映射，並非 OS 檔案沙箱。額外 `mcpServers` 為宿主信任的直接接入，不經 Hub 允許清單。
 
-宿主 JS 函式不能直接跨程序注入；`builtinTools` 非空時會拒絕。CLI 工具請透過 Hub 的 `serveBuiltinStdio()` 做成真正的 stdio MCP server；宿主函式橋接留待 SDK 整合階段。
+宿主 JS 函式不能直接跨程序注入；`builtinTools` 非空時會拒絕。CLI 工具請透過 Hub 的 `serveBuiltinStdio()` 做成真正的 stdio MCP server；Agentin SDK 的 `defineTool()` 已提供宿主函式橋接，透過每次執行的臨時 stdio 上游接入 Engine。
 
 ## 驗證
 

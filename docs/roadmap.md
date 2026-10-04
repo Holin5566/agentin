@@ -1,6 +1,6 @@
 # 開發路線
 
-目前狀態：Engine／Hub 已接入，可獨立建置並通過 499 個底層無模型測試，另有 15 個 SDK 整合測試；新增完整工具結果、builtin schema 驗證與清理修正。來源公開授權待確認；SDK 公開入口與 Claude CLI／OpenCode／Vercel AI runtime 包裝已實作，另有無模型 SDK 整合測試與 basic 範例；函式工具橋接、session 與產品範例尚未實作。
+目前狀態：Engine／Hub 已接入，可獨立建置並通過 499 個底層無模型測試，另有 20 個 SDK 整合測試；新增完整工具結果、builtin schema 驗證與清理修正。來源公開授權待確認；SDK 公開入口與 Claude CLI／OpenCode／Vercel AI runtime 包裝已實作，另有無模型 SDK 整合測試與 basic 範例；函式工具橋接已實作；session 留待最後評估，產品範例尚未實作。
 
 | 階段 | 工作 | 完成條件 |
 |---|---|---|

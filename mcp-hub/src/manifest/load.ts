@@ -222,7 +222,7 @@ export interface Catalog {
 }
 
 /** Load server connections and validate either host-defined routes or legacy JSON tool maps. */
-export function loadCatalog(dir: string = MCP_SERVERS_DIR, definitions?: ToolDecl[]): Catalog {
+export function loadCatalog(dir: string = MCP_SERVERS_DIR, definitions?: ToolDecl[], extraServers: ServerDecl[] = []): Catalog {
   const parsed = readJsonFiles(dir).map(({ file, body }) => {
     const at = `mcp-servers/${file}`;
     const decl = validateServer(body, at);
@@ -230,7 +230,7 @@ export function loadCatalog(dir: string = MCP_SERVERS_DIR, definitions?: ToolDec
     return { file, decl, tools: validateTools(body, decl.id, decl, at) };
   });
 
-  const servers = dedupe(parsed.map(({ file, decl }) => ({ file, decl })), 'server');
+  const servers = dedupe([...parsed.map(({ file, decl }) => ({ file, decl })), ...extraServers.map((decl, i) => ({ file: `inline server[${i}]`, decl: validateServer(decl, `inline server[${i}]`) }))], 'server');
   if (definitions !== undefined) {
     const tools = definitions.map(defineTool).map(tool => {
       const server = servers.find(s => s.id === tool.serverId);

@@ -7,7 +7,7 @@
  * 一句話:engine 把一份 agent 宣告兌現成一次可觀測、可取消、有工具邊界的執行。
  * 它不持有 prompt、不決定下一步、不做編排。
  */
-import type { BuiltinTool, ToolDecl } from 'mcp-hub';
+import type { BuiltinTool, ToolDecl, ServerDecl } from 'mcp-hub';
 import type { AgentCapabilities, AgentDefinition } from './agents/manifest.js';
 
 // ─── 能力 ────────────────────────────────────────────────────────────────
@@ -364,6 +364,8 @@ export class EngineError extends Error {
 export type TakeStatus = 'ok' | 'truncated' | 'error' | 'cancelled';
 
 export interface TakeSpec {
+  /** Serializable, per-take upstream connections; implementations remain in the host. */
+  servers?: ServerDecl[];
   /** Agent definition; validated before spawning. IDs identify records, not lookup targets. */
   agent: AgentDefinition;
   /** **已經組好的** prompt。engine 不拼 prompt。 */
