@@ -1,0 +1,25 @@
+{
+  "name": "agent-engine",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "pretest": "tsc -b",
+    "test": "vitest run",
+    "status": "node dist/cli/status.js"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "3.0.127",
+    "@ai-sdk/openai-compatible": "2.0.81",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "ai": "6.0.300",
+    "mcp-hub": "file:../mcp-hub"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9"
+  }
+}
