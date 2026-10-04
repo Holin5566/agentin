@@ -38,7 +38,7 @@ try {
 
 ## Runtime 與限制
 
-目前保留 Claude CLI、AI SDK 子程序 runner，以及 experimental Codex adapter。OpenCode 尚未實作。AI SDK runner 可接 Anthropic／OpenAI 相容 provider，來源版本的工具結果送回模型路徑目前仍以文字為主。
+目前保留 Claude CLI、AI SDK 子程序 runner，以及 experimental Codex adapter。OpenCode adapter 已加入，支援 JSON 事件與 per-take MCP 設定轉換；真實 binary／模型驗證待完成。AI SDK runner 可接 Anthropic／OpenAI 相容 provider，來源版本的工具結果送回模型路徑目前仍以文字為主。
 
 原生工具權限需明確傳 `capabilities`；省略保留來源版的原生工具預設行為。`tools: []` 只代表沒有 Hub 工具，不會自動關閉原生工具。Claude 的 `workspace-write` 是工具名單映射，並非 OS 檔案沙箱。額外 `mcpServers` 為宿主信任的直接接入，不經 Hub 允許清單。
 
@@ -46,6 +46,6 @@ try {
 
 ## 驗證
 
-`npm test --prefix agent-engine` 會先建置 Hub，再跑型別與 313 個測試；模型 HTTP 使用本機假 server，不需模型帳號。測試環境需允許 loopback HTTP、程序訊號及 `ps`。
+`npm test --prefix agent-engine` 會先建置 Hub，再跑型別與 320 個測試；模型 HTTP 使用本機假 server，不需模型帳號。測試環境需允許 loopback HTTP、程序訊號及 `ps`。
 
 來源與授權狀態見 [來源紀錄](../docs/provenance.md)。

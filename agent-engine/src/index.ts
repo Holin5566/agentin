@@ -58,3 +58,7 @@ export { codexCli, createCodexCli, sandboxFor } from './runtimes/codexCli.js';
 export type { CodexCliOptions } from './runtimes/codexCli.js';
 export { createVercelAiCli } from './runtimes/vercelAiCli.js';
 export type { VercelAiCliOptions } from './runtimes/vercelAiCli.js';
+
+export { createOpenCodeCli } from './runtimes/opencodeCli.js';
+export type { OpenCodeCliOptions } from './runtimes/opencodeCli.js';
+export { createOpenCodeDecoder } from './runtimes/opencodeStream.js';

@@ -49,6 +49,8 @@ export type ExtraMcpServer =
   | { type?: 'stdio'; command: string; args?: string[]; env?: Record<string, string> };
 
 export interface ClaudeCliOptions {
+  /** CLI binary path, useful for managed installations and contract tests. */
+  executable?: string;
   /** `--settings <file>`:疊在使用者設定之上(例如關掉宿主用不到的 plugin)。 */
   settings?: string;
   /** `--dangerously-skip-permissions`:headless 執行不停下來問權限。工具範圍仍由 `--tools` 與 gateway 限制。 */
@@ -88,7 +90,7 @@ export function createClaudeCli(opts: ClaudeCliOptions = {}): SpawnRuntime {
     command({ prompt, mcpConfigPath, capabilities, skills, model }: CommandContext): SpawnCommand {
       const tools = toolsFor(capabilities);
       return {
-        file: 'claude',
+        file: opts.executable ?? 'claude',
         // prompt 走 stdin(見 SpawnCommand.stdin):`-p` 沒有位置參數時從 stdin 讀。
         stdin: prompt,
         ...(env ? { env } : {}),

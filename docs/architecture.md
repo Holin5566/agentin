@@ -2,7 +2,7 @@
 
 ## 原則與現況
 
-Agentin 是對外整合層，不只是 repo 名稱。底下保留 `agent-engine/`、`mcp-hub/`，先以 private 本機套件嵌入，不發布。此文件描述目標架構。Engine／Hub 已搬入並通過本機建置與無模型測試；SDK 的 agent 定義、runtime 註冊、run／close 與 Claude runtime 包裝已實作；OpenCode、函式橋接與 session 待完成。
+Agentin 是對外整合層，不只是 repo 名稱。底下保留 `agent-engine/`、`mcp-hub/`，先以 private 本機套件嵌入，不發布。此文件描述目標架構。Engine／Hub 已搬入並通過本機建置與無模型測試；SDK 的 agent 定義、runtime 註冊、run／close 與 Claude CLI／OpenCode／Vercel AI runtime 包裝已實作；函式橋接待完成，session 最後再評估。
 
 以 ai-guardianbot 的新版 Engine、Hub 與 runtime 路由設計為底層依據，參考 agent-studio（JackIn）的函式工具、宿主橋接與可選對話管理。兩邊底層版本不同，不整份複製；Guardian 的 code-defined agent／工具路由與 AI SDK loop 應保留。
 
@@ -30,7 +30,7 @@ close 立即停止接受執行，取消所有已建立 Engine 的進行中工作
 ## 三種使用路徑
 
 1. **一次任務**：宿主 → Agentin `run()` → Engine → runtime → Hub → 工具；結果回宿主驗收。宿主可提供 signal、事件、模型選擇與輸出解析。
-2. **聊天（第一版範圍）**：宿主 → 明確建立的 session → 歷史組裝 → 同一 `run()` 路徑 → 保存成功回覆。服務端使用明確對話 ID，不隱含共用 default 對話。
+2. **聊天（最後評估是否納入）**：宿主 → 明確建立的 session → 歷史組裝 → 同一 `run()` 路徑 → 保存成功回覆。服務端使用明確對話 ID，不隱含共用 default 對話。
 3. **直接工具呼叫（後續）**：宿主 → Agentin 工具入口 → Hub → 上游工具，不需要模型。應提供 schema 與完整結果，文字便利介面可另外保留。
 
 ## 現有底層與目標介面的差異
@@ -38,7 +38,7 @@ close 立即停止接受執行，取消所有已建立 Engine 的進行中工作
 - Engine 現有入口為 `createAgentEngine()`／`runTake()`；Agentin 的 `run()` 組裝角色 instructions 與 input，委派給所選 runtime 的 Engine。
 - Hub `defineTool()` 是可序列化路由定義；宿主函式使用 `BuiltinTool.execute(args, signal)`，與下列目標 SDK 介面不同。
 - Hub in-memory builtin 支援 schema 驗證與完整 MCP 結果；Engine 子程序不能直接接收 JS 函式，需 stdio server。ToolBridge 尚未接入。
-- 保留來源版 Claude、AI SDK runner 與 experimental Codex；OpenCode adapter 待實作，真實 CLI 隔離待此 repo 驗證。
+- 保留來源版 Claude、AI SDK runner 與 experimental Codex；OpenCode adapter 已實作，真實 CLI 隔離待此 repo 驗證。
 - Engine AgentManifest 保留來源相容欄位；公開 SDK 角色介面將由整合層收斂。
 
 ## 工具介面
@@ -52,7 +52,7 @@ close 立即停止接受執行，取消所有已建立 Engine 的進行中工作
 
 ## Runtime 與執行政策
 
-第一版接 Claude CLI 與 OpenCode；Pi SDK、自架模型 runner 後續評估。Runtime 使用宿主註冊名稱，例如 `claude`、`opencode`，不把 AI SDK 的實作套件名稱固定成產品概念。Executor 與模型來源是不同維度；同一 runner 可以接不同 provider。
+第一版接 Claude CLI、Vercel AI 與OpenCode；Pi SDK、自架模型 runner 後續評估。Runtime 使用宿主註冊名稱，例如 `claude`、`opencode`，不把 AI SDK 的實作套件名稱固定成產品概念。Executor 與模型來源是不同維度；同一 runner 可以接不同 provider。
 
 Agent 定義與執行服務分離。Agentin 管理共用 runtime／engine 的生命週期；每次 take 保留自己的工具範圍、事件與結果。多模態支援與其他能力應在執行前檢查。
 
@@ -74,7 +74,7 @@ Engine 的成功狀態代表執行與輸出契約通過，不代表任務事實�
 2. 建立 Agentin 的純 agent 定義、runtime 註冊、`run()`／`close()`。
 3. 借用並適配函式工具與 ToolBridge，加入 schema 驗證及完整工具結果。
 4. 用 Guardian 的真實呼叫方式驗證整合，業務邏輯留在宿主。
-5. 加入明確 session，完成 Terminal 聊天與瀏覽器探索兩個範例。
+5. 完成 Terminal 與瀏覽器探索範例；session 最後再評估是否納入。
 6. 直接工具入口、Pi SDK 與自架模型接入留待後續。
 
 暫不加入 Agency／Desk、排程、完整人工核准框架或 npm 發布流程。
