@@ -111,21 +111,23 @@ Session 留到最後再評估是否加入；Terminal UI 由宿主負責。
 
 ```ts
 import { defineTool, defineAgent } from 'agentin';
+import { z } from 'zod/v4';
 
 const greet = defineTool({
   id: 'greet',
   description: '向使用者打招呼',
-  inputSchema: {
-    type: 'object', properties: { name: { type: 'string' } },
-    required: ['name'], additionalProperties: false,
-  },
-  execute: async (args, { signal, agent, runId }) => {
+  inputSchema: z.strictObject({
+    name: z.string().min(1).describe('要打招呼的對象姓名'),
+  }),
+  execute: async ({ name }, { signal, agent, runId }) => {
     signal.throwIfAborted();
-    return `你好，${args.name}！`;
+    return `你好，${name}！`;
   },
 });
 const assistant = defineAgent({ id: 'assistant', instructions: '使用 greet 工具。', tools: [greet] });
 ```
+
+`inputSchema` 接受 Zod 4（`zod/v4`）或原本的 JSON Schema。Zod 寫法會自動推導 `execute` 的參數為解析後型別，並在宿主執行前套用預設值、轉換與非同步 refinement。SDK 使用 [Zod JSON Schema 轉換](https://zod.dev/json-schema)的輸入模式產生 draft-7 schema；schema 必須能描述 object 輸入，無法轉換的型別會在 `defineTool()` 時拒絕。JSON Schema 寫法的參數型別維持 `Record<string, unknown>`。
 
 函式與 closure 留在宿主；每次 run 開啟獨立憑證的 loopback HTTP 端點，經 stdio MCP proxy 與 Hub 允許清單接入 runtime。參數在執行前按 JSON Schema 驗證，支援文字或完整 MCP CallToolResult。已知工具失敗可 throw `ToolFailure`，取消由 `context.signal` 傳遞；忽略 signal 的宿主函式仍可能繼續執行。
 

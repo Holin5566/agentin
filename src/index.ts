@@ -13,5 +13,5 @@ export { opencodeRuntime } from './runtimes/opencode.js';
 export type { OpenCodeRuntimeOptions } from './runtimes/opencode.js';
 
 export { defineTool } from './tools/tool.js';
-export type { FunctionTool, ToolContext, FunctionToolResult } from './tools/tool.js';
+export type { FunctionTool, ToolContext, FunctionToolResult, ZodToolOptions } from './tools/tool.js';
 export { ToolFailure } from 'mcp-hub';
