@@ -2,18 +2,36 @@
 
 ## Quick Start
 
-需要 Node.js 20 以上。目前尚未發布 npm，先從 repo 安裝：
+需要 Node.js 20 以上。目前尚未發布 npm，先從 repo 安裝。
+
+### 1. 下載專案
+
+取得原始碼，並切換到專案根目錄：
 
 ```sh
 git clone https://github.com/Holin5566/agentin.git
 cd agentin
+```
+
+### 2. 安裝相依套件
+
+一次安裝 SDK、Agent Engine 與 MCP Hub 所需的套件：
+
+```sh
 npm run setup
+```
+
+### 3. 確認本機可以執行
+
+建置 SDK 並執行 echo 範例，確認基本執行流程正常。這一步不需要模型帳號；echo 會回傳輸入文字。
+
+```sh
 npm run smoke
 ```
 
-`smoke` 會建置 SDK 並執行本機 echo 範例，不需要模型帳號。
+### 4. 試跑真實模型
 
-已安裝並授權 Claude CLI 時，執行真實模型問答：
+先在本機安裝並授權 Claude CLI，再執行相同範例的 Claude 模式：
 
 ```sh
 node examples/basic.cjs --claude
@@ -21,18 +39,84 @@ node examples/basic.cjs --claude
 
 ## 建立第一個 agent
 
-在 repo 根目錄建立 `quick-start.cjs`。這個範例使用已安裝並授權的 Claude CLI：
+在 repo 根目錄建立 `quick-start.cjs`。以下逐步組合一個使用 Claude CLI 的 agent；最後提供完整程式。
+
+### 1. 載入 SDK
+
+從剛才建置的 `dist` 載入三個入口：`defineAgent` 定義角色，`claudeRuntime` 選擇執行方式，`createAgentin` 管理執行與資源。
+
+```js
+const { defineAgent, createAgentin, claudeRuntime } = require('./dist');
+```
+
+### 2. 定義 agent 的角色
+
+`id` 是執行時指定的名稱，`instructions` 告訴模型如何回答，`tools` 列出提供給 agent 的工具。這裡先建立純文字問答的角色。
+
+```js
+const assistant = defineAgent({
+  id: 'assistant',
+  instructions: '用繁體中文簡短回答。',
+  tools: [],
+});
+```
+
+### 3. 註冊 agent 與 runtime
+
+把角色交給 `createAgentin()`，並將 Claude CLI 註冊為 `claude`。`defaultRuntime` 決定沒有另外指定 runtime 時使用哪個執行器；此時尚未呼叫模型。
+
+```js
+const app = createAgentin({
+  agents: [assistant],
+  runtimes: { claude: claudeRuntime() },
+  defaultRuntime: 'claude',
+});
+```
+
+### 4. 執行任務並讀取結果
+
+`agent` 對應剛才的 `id`，`input` 是這次的任務，`timeoutMs` 將執行時間限制為 30 秒。等待完成後，從 `status` 判斷結果，再讀取 `output`。
+
+```js
+const result = await app.run({
+  agent: 'assistant',
+  input: '解釋 SDK 的用途',
+  timeoutMs: 30000,
+});
+console.log(result.status, result.output);
+if (result.status !== 'ok') process.exitCode = 1;
+```
+
+這段使用 `await`，需放在下方完整範例的 `async main()` 中。
+
+### 5. 關閉並清理資源
+
+執行結束後呼叫 `close()`。放在 `finally`，可確保任務成功或拋出錯誤時都會清理資源；關閉也會取消仍在執行的任務。
+
+```js
+try {
+  // 放入上一步的 app.run() 與結果處理。
+} finally {
+  await app.close();
+}
+```
+
+### 完整程式
+
+把以上步驟組合成 `quick-start.cjs`。`main().catch()` 處理設定或其他拋出的錯誤，並以非零結束碼表示失敗。
 
 ```js
 const { defineAgent, createAgentin, claudeRuntime } = require('./dist');
 
 async function main() {
+  const assistant = defineAgent({
+    id: 'assistant',
+    instructions: '用繁體中文簡短回答。',
+    tools: [],
+  });
+
   const app = createAgentin({
-    agents: [defineAgent({
-      id: 'assistant',
-      instructions: '用繁體中文簡短回答。',
-      tools: [],
-    })],
+    agents: [assistant],
     runtimes: { claude: claudeRuntime() },
     defaultRuntime: 'claude',
   });
@@ -55,6 +139,8 @@ main().catch(error => {
   process.exitCode = 1;
 });
 ```
+
+在 repo 根目錄執行，開始呼叫 Claude CLI：
 
 ```sh
 node quick-start.cjs
