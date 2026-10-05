@@ -7,6 +7,8 @@ import { createAgentEngine, EngineError } from 'agent-engine';
 import type { Engine, EngineConfig, RunEvent, SpawnRuntime, TakeResult, TakeSpec } from 'agent-engine';
 import { defineAgent, engineAgent } from './agent.js';
 import type { Agent } from './agent.js';
+import { parseJsonOutput } from './output.js';
+import { z } from 'zod/v4';
 
 export interface AgentinConfig {
   agents: readonly Agent[];
@@ -26,9 +28,15 @@ export type RunOptions = Omit<TakeSpec, 'agent' | 'prompt' | 'servers'> & {
   agent: string;
   input: string;
   runtime?: string;
+  /** Zod schema for a JSON result. Applied after `parseOutput`; a mismatch ends the take as an `output` error. */
+  output?: z.ZodType;
 };
-export type RunResult = TakeResult & { runtime: string };
+export type RunResult<T = never> = TakeResult & { runtime: string } & ([T] extends [never] ? unknown : {
+  /** Validated output; present only when `status` is `ok`. */
+  data?: T;
+});
 export interface Agentin {
+  run<S extends z.ZodType>(options: RunOptions & { output: S }): Promise<RunResult<z.output<S>>>;
   run(options: RunOptions): Promise<RunResult>;
   close(): Promise<void>;
 }
@@ -79,7 +87,7 @@ export function createAgentin(config: AgentinConfig): Agentin {
   let closing: Promise<void> | undefined;
 
   return {
-    async run(options): Promise<RunResult> {
+    async run(options: RunOptions): Promise<RunResult<unknown>> {
       if (closed) throw new EngineError('config', 'agentin is closed');
       if (!options || typeof options.input !== 'string') throw new EngineError('config', 'input must be a string');
       const agent = agents.get(options.agent);
@@ -90,6 +98,7 @@ export function createAgentin(config: AgentinConfig): Agentin {
       const startedAt = Date.now();
       budget(options.timeoutMs, 'timeoutMs');
       budget(options.maxOutputBytes, 'maxOutputBytes');
+      if (options.output !== undefined && !(options.output instanceof z.ZodType)) throw new EngineError('config', 'output must be a Zod schema');
       const lifetime = new AbortController();
       const onAbort = () => lifetime.abort();
       options.signal?.addEventListener('abort', onAbort, { once: true });
@@ -117,14 +126,20 @@ export function createAgentin(config: AgentinConfig): Agentin {
           engine = createAgentEngine({ ...engineConfig, runtime });
           engines.set(name, engine);
         }
-        const { agent: _agent, input, runtime: _runtime, ...take } = options;
+        const { agent: _agent, input, runtime: _runtime, output: schema, ...take } = options;
+        let data: { value: unknown } | undefined;
+        const parseOutput = schema ? (raw: string) => {
+          const parsed = parseJsonOutput(take.parseOutput ? take.parseOutput(raw) : raw, schema);
+          data = { value: parsed.data };
+          return parsed.json;
+        } : take.parseOutput;
         const prompt = agent.instructions ? `${agent.instructions}\n\n${input}` : input;
         const timeoutMs = take.timeoutMs ?? engineConfig.defaults?.timeoutMs;
         const result = await engine.runTake({ ...take, startedAt: take.startedAt ?? startedAt, timeoutMs,
-          signal: lifetime.signal, agent: engineAgent(agent, routes), prompt,
+          signal: lifetime.signal, agent: engineAgent(agent, routes), prompt, parseOutput,
           ...(bridge ? { servers: [bridge.server] } : {}),
         });
-        return { ...result, runtime: name };
+        return { ...result, runtime: name, ...(data && result.status === 'ok' ? { data: data.value } : {}) };
       } finally {
         lifetime.abort();
         options.signal?.removeEventListener('abort', onAbort);

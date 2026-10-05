@@ -105,6 +105,16 @@ Agent 是角色與能力宣告；runtime 是執行方式。切換 runtime 前須
 
 `run()` 支援 `signal`、`onEvent`、`timeoutMs`、`model`、`maxOutputBytes` 與 `parseOutput`。結果包含 runtime 名稱以及 Engine 的狀態、stopReason、usage、產物與 cleanup。設定錯誤 reject `EngineError`；執行與能力失敗依結果模型回報。`close()` 取消所有進行中的工作，重複呼叫回同一份關閉 Promise。
 
+需要結構化結果時傳入 Zod 4 schema 作為 `output`：
+
+```ts
+const verdict = z.strictObject({ pass: z.boolean(), reason: z.string() });
+const result = await app.run({ agent: 'judge', input: '請以 JSON 回覆 {"pass": boolean, "reason": string}', output: verdict });
+if (result.status === 'ok') console.log(result.data!.pass);
+```
+
+SDK 依序嘗試整段輸出與文字中每個平衡的 JSON object／array，取第一個通過 schema 的值；前後說明文字與 code fence 會被略過。`result.data` 為解析後型別，`result.output` 與產物保存相符的 JSON 原文。有 `parseOutput` 時先套用它再驗證。不符合時 take 以 `output` 錯誤結束，不產生產物或 `data`，也不自動重跑。SDK 不改寫 prompt，輸出格式須由 instructions 或 input 說明。驗證為同步執行，非同步 refinement 會使驗證失敗。
+
 Session 留到最後再評估是否加入；Terminal UI 由宿主負責。
 
 ## 宿主函式工具
