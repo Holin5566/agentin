@@ -1,5 +1,12 @@
 # Agentin
 
+Agentin 是 TypeScript Agent SDK。用結構化領域知識決定查詢目標，透過各 agent 的工具範圍執行任務。
+
+| 核心能力 | 工程責任 |
+|---|---|
+| **Agent Engine** | 在可替換的 runtime 執行任務，提供事件、逾時、取消與資源清理。 |
+| **Scoped MCP Hub** | 依 agent 的允許清單暴露工具，驗證輸入並轉送 MCP 呼叫。 |
+| **Domain Ontology** | 分離使用者別名與實體，依查詢路徑推導目標。多候選且無法由預設值唯一決定時，回傳澄清選項。 |
 
 ## Quick Start
 
@@ -28,7 +35,10 @@ npm run setup
 
 ```sh
 npm run smoke
+npm run smoke:ontology
 ```
+
+Ontology 範例以同一個別名 `Alpha` 路由至付款服務。保留群組預設值時命中 `payment-service-a`，移除預設值後回傳兩個候選，等待明確選擇。
 
 ### 4. 試跑真實模型
 
@@ -224,6 +234,31 @@ const assistant = defineAgent({
 
 工具參數會在執行前驗證。`inputSchema` 支援 Zod 4 或 JSON Schema，工具可回傳文字或完整 MCP 結果，也能與外部 MCP 工具混用。可執行範例見 [function-tool.cjs](examples/function-tool.cjs)；橋接與錯誤處理詳見 [工具說明](docs/usage.md#宿主函式工具)。
 
+## Domain Ontology 與查詢路由
+
+在 repo 根目錄使用範例圖。SDK 會先驗證關係的端點類型、基數、預設值與路徑，建立可重複使用的 resolver。
+
+```js
+const { createOntology, createOntologyTool, defineAgent } = require('./dist');
+const ontology = createOntology(require('./examples/ontology-graph.json'));
+
+const plan = ontology.resolve({
+  route: 'group-payment',
+  source: { label: 'Alpha' },
+});
+// resolved: alpha-group → shop-a → payment-service-a
+
+const assistant = defineAgent({
+  id: 'service-assistant',
+  instructions: 'Use ontology_resolve. Ask the user to choose when clarification is returned.',
+  tools: [createOntologyTool(ontology)],
+});
+```
+
+將 `assistant` 加入 `createAgentin({ agents, runtimes, defaultRuntime })`，`ontology_resolve` 就會透過現有的 Scoped MCP Hub 出現在這個 agent 的工具清單。宿主也可直接呼叫 `ontology.resolve()`，以 `clarification` 暫停流程並展示候選。下一次查詢用使用者確認的 `source.entityId` 或 `targetId` 繼續。對有權限要求的操作，宿主應固定意圖路由、使用符合呼叫者授權的圖，並在派送前核對目標權限。
+
+[圖結構、預設值規則與權限邊界](docs/architecture.md#domain-ontology)
+
 ## 取得結構化結果
 
 在 `run()` 傳入 Zod schema，成功時從 `result.data` 取得驗證後的資料：
@@ -311,12 +346,12 @@ Agentin 適合需要混用模型 API、CLI agent 與 MCP 工具的流程，提�
 
 ## 開發與專案狀態
 
-目前是 alpha，尚未發布 npm。SDK、三種 runtime、函式工具橋接與 Zod 輸出驗證已實作；session、圖片輸入、Terminal 聊天與瀏覽器探索範例尚未提供。真實 Claude／OpenCode 的工具限制與橋接仍待驗收。
+目前是 alpha，尚未發布 npm。SDK、三種 runtime、函式工具橋接、Domain Ontology 與 Zod 輸出驗證已實作；session、圖片輸入、Terminal 聊天與瀏覽器探索範例尚未提供。真實 Claude／OpenCode 的工具限制與橋接仍待驗收。
 
 ```sh
 npm run build     # 建置 SDK、Engine、Hub
 npm test          # 底層與 SDK 測試
-npm run test:sdk  # SDK 型別與整合驗證
+npm run test:sdk  # SDK 型別、單元與整合驗證
 npm run check    # 建置並執行全部測試
 ```
 

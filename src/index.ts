@@ -15,3 +15,7 @@ export type { OpenCodeRuntimeOptions } from './runtimes/opencode.js';
 export { defineTool } from './tools/tool.js';
 export type { FunctionTool, ToolContext, FunctionToolResult, ZodToolOptions } from './tools/tool.js';
 export { ToolFailure } from 'mcp-hub';
+
+export { createOntology, validateOntology } from './ontology/model.js';
+export type { Ontology, OntologyDefinition, OntologyQuery, OntologyResolution } from './ontology/model.js';
+export { createOntologyTool } from './ontology/tool.js';

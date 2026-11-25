@@ -1,0 +1,30 @@
+{
+  "kinds": ["tenant-group", "tenant", "service"],
+  "entities": [
+    { "id": "alpha-group", "kind": "tenant-group" },
+    { "id": "shop-a", "kind": "tenant" },
+    { "id": "shop-b", "kind": "tenant" },
+    { "id": "payment-service-a", "kind": "service" },
+    { "id": "payment-service-b", "kind": "service" }
+  ],
+  "labels": [
+    { "text": "Alpha", "denotes": ["alpha-group", "shop-a"] },
+    { "text": "Shops", "denotes": ["shop-a", "shop-b"] },
+    { "text": "Shop A", "denotes": ["shop-a"] }
+  ],
+  "relations": [
+    { "id": "contains", "from": "tenant-group", "to": "tenant", "cardinality": "1..*" },
+    { "id": "payment", "from": "tenant", "to": "service", "cardinality": "1" }
+  ],
+  "edges": [
+    { "from": "alpha-group", "relation": "contains", "to": "shop-b" },
+    { "from": "alpha-group", "relation": "contains", "to": "shop-a", "default": true },
+    { "from": "shop-a", "relation": "payment", "to": "payment-service-a" },
+    { "from": "shop-b", "relation": "payment", "to": "payment-service-b" }
+  ],
+  "routes": [
+    { "id": "group-payment", "from": "tenant-group", "via": ["contains", "payment"] },
+    { "id": "tenant-payment", "from": "tenant", "via": ["payment"] },
+    { "id": "tenant-lookup", "from": "tenant", "via": [] }
+  ]
+}

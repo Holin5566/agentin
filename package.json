@@ -12,7 +12,8 @@
     "test": "npm test --prefix mcp-hub && npm test --prefix agent-engine && npm run test:sdk",
     "check": "npm run build && npm test",
     "smoke": "npm run build && node examples/basic.cjs",
-    "test:sdk": "npm run build && tsc -p tsconfig.tests.json && vitest run tests/integration"
+    "test:sdk": "npm run build && tsc -p tsconfig.tests.json && vitest run tests/integration tests/unit",
+    "smoke:ontology": "npm run build && node examples/ontology.cjs"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

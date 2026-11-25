@@ -2,9 +2,18 @@
 
 ## 原則與現況
 
-Agentin 是對外整合層，不只是 repo 名稱。底下保留 `agent-engine/`、`mcp-hub/`，先以 private 本機套件嵌入，不發布。此文件描述目標架構。Engine／Hub 已搬入並通過本機建置與無模型測試；SDK 的 agent 定義、runtime 註冊、run／close 與 Claude CLI／OpenCode／Vercel AI runtime 包裝已實作；函式橋接已完成，session 最後再評估。
+Agentin 將三項能力組合在同一個 SDK：
 
-以模組化的 Engine、MCP Hub 與 runtime 路由設計為核心，結合宿主函式工具橋接與可選對話管理；保留 code-defined agent、工具路由與 AI SDK loop 設計。
+- **Agent Engine** 管理單次任務的 runtime、事件、取消及清理。
+- **Scoped MCP Hub** 依 agent 的允許清單驗證和派送工具。
+- **Domain Ontology** 在資料查詢前，將領域別名轉成可驗證的實體與目標。
+
+```sh
+npm run setup
+npm run smoke:ontology
+```
+
+Smoke 使用本機圖與付款服務 fixture。完整 MCP 路徑由 SDK 整合測試覆蓋，測試使用本機替代模型。
 
 ## 模組分工
 
@@ -12,6 +21,7 @@ Agentin 是對外整合層，不只是 repo 名稱。底下保留 `agent-engine/
 |---|---|---|
 | `src/agentin.ts` | 註冊 runtime、組裝 engine／hub、派送執行、管理關閉 | 不決定業務階段、人工 gate 或任務驗收內容 |
 | `src/agent.ts` | 定義 agent 身分、instructions、工具與能力 | 純定義，不持有連線或聊天狀態 |
+| `src/ontology/` | 驗證圖、依路由解別名、推導目標、產生澄清候選與宿主工具 | 宿主掌管授權與資料派送 |
 | `src/tools/` | 定義函式工具、引用遠端 MCP 工具、驗證參數、橋接宿主函式 | 不決定業務工具的實際效果或自動重試 |
 | `src/sessions/` | 可選歷史儲存、對話隔離、同一對話的重疊執行控制 | 不讓一次 take 自動擁有隱藏聊天歷史 |
 | `src/index.ts` | 匯出穩定的主要 API | 底層 helper 不全部直接轉匯出 |
@@ -46,9 +56,32 @@ close 立即停止接受執行，取消所有已建立 Engine 的進行中工作
 - `defineTool()`：宿主函式實作，包含 schema 與 `execute(args, context)`。
 - `mcpTool()`：遠端工具引用，包含對外 ID、server ID 與上游工具名。
 - 兩種工具最後都走相同的允許清單。程式設定與檔案設定應共用驗證與路由模型，避免重複定義。
-- 參考 JackIn ToolBridge：函式留在宿主，內部 stdio server 經本機橋接呼叫；每次 take 綁定獨立憑證、工具範圍與取消訊號。
+- ToolBridge 設計：函式留在宿主，內部 stdio server 經本機橋接呼叫；每次 take 綁定獨立憑證、工具範圍與取消訊號。
 - 工具取消是合作式的；忽略 signal 的宿主函式可能繼續執行。
 - 工具結果需保留圖片、結構化資料與錯誤語意，不能全部轉成 JSON 字串。
+
+## Domain Ontology
+
+### 圖結構
+
+宿主把 JSON 資料或 TypeScript 物件交給 `createOntology(definition)`，SDK 驗證並建立私有快照。也可先用 `validateOntology(data)` 取得驗證錯誤清單。
+
+| 元件 | 用途 |
+|---|---|
+| `kinds`、`entities` | 定義實體類型與穩定 ID，例如 `alpha-group`、`shop-a`。 |
+| `labels` | 每個別名透過 `denotes` 指向一或多個實體。比對為完整別名比對，使用 NFKC、小寫及分隔符正規化。 |
+| `relations`、`edges` | 宣告有向關係的起點、終點類型與每個起點的出邊基數。每個起點的同類關係最多有一條預設邊。 |
+| `routes` | 固定查詢的起點類型與依序走過的關係。空路徑回傳起點。 |
+
+驗證攔截錯誤資料型別、重複 ID、正規化後撞名的別名、未知實體或關係、重複邊、錯誤端點、基數違反、多重預設值與無法串接的路徑。範例見 [ontology-graph.json](../examples/ontology-graph.json)。
+
+### 路由與澄清
+
+1. 以路由的起點類型篩選別名的 `denotes`。同一個 `Alpha` 在群組路由對應 `alpha-group`，在租戶路由對應 `shop-a`。同類型仍有多個來源時，回傳 `clarification`，請呼叫者選 `source.entityId`。
+2. 沿路由關係走訪，去重所有可達的終點。單一終點直接命中。多個終點時，逐跳考慮可達終點的分支，分支有唯一可行選項就繼續，有預設邊就走預設邊。預設值只能在這條路徑完整推導出單一終點時生效。
+3. 仍有歧義時回傳排序後的 `targetId` 候選，結果不含選定目標。呼叫者可以提供明確 `targetId`，resolver 會驗證它在原路徑上可達。未知來源、未知路由、沒有可達目標或明確目標無法到達，均回傳可識別原因的 `not_found`。
+
+`createOntologyTool(ontology)` 將解析結果包成 `ontology_resolve` 的 MCP 內容與結構化資料，可透過 SDK 的宿主函式橋接加入任一 agent。涉及資料查詢時，由宿主用固定的業務路由先解析，對 `clarification` 或 `not_found` 暫停派送。只有確認來源與目標後才查詢，後續選擇值取自呼叫者確認。多租戶服務應在工具註冊前選用呼叫者有權看見的圖，以免候選清單暴露其他租戶，派送時仍要驗證身分與資料存取權限。Hub 的允許清單控制工具可見性及可呼叫範圍。
 
 ## Runtime 與執行政策
 
@@ -84,6 +117,6 @@ Engine 的成功狀態代表執行與輸出契約通過，不代表任務事實�
 - Agentin 是可嵌入的開源 SDK；註冊與派發不代表內建任務排程或自主多 agent 協作。
 - 第一版以 Claude CLI／OpenCode 驗證共通契約。Engine 現有 SpawnRuntime 不能直接假定涵蓋服務／SDK 型 runtime；接入時先確認生命週期與事件需求，再決定擴充 adapter 介面。
 - `src/runtimes/` 負責 SDK 對外組裝與註冊；具體 adapter 與事件解析留在 Engine，避免重複實作。
-- `tests/integration/` 驗證外層整合，Engine／Hub 的模組測試仍各自維護。
+- `tests/unit/` 驗證 ontology 圖與路由，`tests/integration/` 驗證 SDK 與 Scoped MCP Hub 的工具整合。Engine 與 Hub 各自維護模組測試。
 - `examples/terminal-chat/` 與 `examples/browser-explorer/` 尚未實作；瀏覽器例子先驗證探索與證據，Playwright 生成／重跑是後續業務範例。
 - 目前不打包；發布前才加入乾淨安裝、公開型別、來源授權與交付驗證。
