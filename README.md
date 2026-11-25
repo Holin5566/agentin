@@ -1,5 +1,6 @@
 # Agentin
 
+
 ## Quick Start
 
 需要 Node.js 20 以上。目前尚未發布 npm，先從 repo 安裝。
@@ -39,21 +40,21 @@ node examples/basic.cjs --claude
 
 ## 建立第一個 agent
 
-在 repo 根目錄建立 `quick-start.cjs`。以下逐步組合一個使用 Claude CLI 的 agent；最後提供完整程式。
+在 repo 根目錄建立 `quick-start.ts`。以下逐步組合一個使用 Claude CLI 的 agent；最後提供完整程式與 TypeScript 執行方式。
 
 ### 1. 載入 SDK
 
 從剛才建置的 `dist` 載入三個入口：`defineAgent` 定義角色，`claudeRuntime` 選擇執行方式，`createAgentin` 管理執行與資源。
 
-```js
-const { defineAgent, createAgentin, claudeRuntime } = require('./dist');
+```ts
+import { defineAgent, createAgentin, claudeRuntime } from './dist';
 ```
 
 ### 2. 定義 agent 的角色
 
 `id` 是執行時指定的名稱，`instructions` 告訴模型如何回答，`tools` 列出提供給 agent 的工具。這裡先建立純文字問答的角色。
 
-```js
+```ts
 const assistant = defineAgent({
   id: 'assistant',
   instructions: '用繁體中文簡短回答。',
@@ -65,7 +66,7 @@ const assistant = defineAgent({
 
 把角色交給 `createAgentin()`，並將 Claude CLI 註冊為 `claude`。`defaultRuntime` 決定沒有另外指定 runtime 時使用哪個執行器；此時尚未呼叫模型。
 
-```js
+```ts
 const app = createAgentin({
   agents: [assistant],
   runtimes: { claude: claudeRuntime() },
@@ -77,7 +78,7 @@ const app = createAgentin({
 
 `agent` 對應剛才的 `id`，`input` 是這次的任務，`timeoutMs` 將執行時間限制為 30 秒。等待完成後，從 `status` 判斷結果，再讀取 `output`。
 
-```js
+```ts
 const result = await app.run({
   agent: 'assistant',
   input: '解釋 SDK 的用途',
@@ -93,7 +94,7 @@ if (result.status !== 'ok') process.exitCode = 1;
 
 執行結束後呼叫 `close()`。放在 `finally`，可確保任務成功或拋出錯誤時都會清理資源；關閉也會取消仍在執行的任務。
 
-```js
+```ts
 try {
   // 放入上一步的 app.run() 與結果處理。
 } finally {
@@ -103,10 +104,10 @@ try {
 
 ### 完整程式
 
-把以上步驟組合成 `quick-start.cjs`。`main().catch()` 處理設定或其他拋出的錯誤，並以非零結束碼表示失敗。
+把以上步驟組合成 `quick-start.ts`。`main().catch()` 處理設定或其他拋出的錯誤，並以非零結束碼表示失敗。
 
-```js
-const { defineAgent, createAgentin, claudeRuntime } = require('./dist');
+```ts
+import { defineAgent, createAgentin, claudeRuntime } from './dist';
 
 async function main() {
   const assistant = defineAgent({
@@ -140,10 +141,16 @@ main().catch(error => {
 });
 ```
 
+安裝 `tsx`，讓 Node.js 可以執行 TypeScript 範例：
+
+```sh
+npm install --save-dev tsx
+```
+
 在 repo 根目錄執行，開始呼叫 Claude CLI：
 
 ```sh
-node quick-start.cjs
+npx tsx quick-start.ts
 ```
 
 ## 基本用法
@@ -154,7 +161,7 @@ node quick-start.cjs
 
 ### 取得結果與進度
 
-```js
+```ts
 const result = await app.run({
   agent: 'assistant',
   input: '列出三個 TypeScript 的優點',
@@ -173,7 +180,7 @@ if (result.status === 'ok') {
 
 ### 取消任務
 
-```js
+```ts
 const controller = new AbortController();
 const pending = app.run({
   agent: 'assistant',
@@ -190,9 +197,9 @@ const result = await pending;
 
 用 `defineTool()` 把宿主函式提供給 agent。以下定義可取代第一個範例的 agent；`createAgentin()` 的 `agents` 改成 `[assistant]`。
 
-```js
-const { defineTool } = require('./dist');
-const { z } = require('zod/v4');
+```ts
+import { defineTool } from './dist';
+import { z } from 'zod/v4';
 
 const greet = defineTool({
   id: 'greet',
@@ -221,8 +228,8 @@ const assistant = defineAgent({
 
 在 `run()` 傳入 Zod schema，成功時從 `result.data` 取得驗證後的資料：
 
-```js
-const { z } = require('zod/v4');
+```ts
+import { z } from 'zod/v4';
 const verdict = z.strictObject({
   pass: z.boolean(),
   reason: z.string(),
@@ -244,8 +251,8 @@ else console.error(result.error ?? result.stopReason);
 
 同一個 agent 可以使用不同 runtime。在第一個範例的 `createAgentin()` 中註冊：
 
-```js
-const { opencodeRuntime, vercelAiRuntime } = require('./dist');
+```ts
+import { opencodeRuntime, vercelAiRuntime } from './dist';
 
 const runtimes = {
   claude: claudeRuntime(),
@@ -262,7 +269,7 @@ const runtimes = {
 
 執行時指定已註冊的名稱，也可以覆寫模型：
 
-```js
+```ts
 const result = await app.run({
   agent: 'assistant',
   input: '解釋 SDK 的用途',
@@ -285,7 +292,7 @@ Vercel AI 範例使用 `AGENTIN_MODEL`、`AGENTIN_BASE_URL`，並依 provider �
 
 原生檔案與 shell 工具預設關閉。需要讀檔時，在 agent 明確宣告：
 
-```js
+```ts
 const reader = defineAgent({
   id: 'reader',
   instructions: '閱讀檔案並整理摘要。',
@@ -319,3 +326,4 @@ npm run check    # 建置並執行全部測試
 - [架構與責任](docs/architecture.md)
 - [開發路線](docs/roadmap.md)
 - [Engine](agent-engine/README.md)／[MCP Hub](mcp-hub/README.md)
+- [開源交付待確認事項](docs/open-source-issues.md)
