@@ -1,0 +1,25 @@
+{
+  "name": "mcp-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP gateway that exposes only an allow-listed set of upstream tools",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "pretest": "tsc -b",
+    "test": "vitest run",
+    "gateway": "node dist/bin/entry.js",
+    "check": "node dist/bin/check.js",
+    "auth-login": "node dist/bin/authLogin.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "ajv": "8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9"
+  }
+}

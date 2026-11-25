@@ -1,0 +1,15 @@
+{
+  "id": "upstream",
+  "transport": "stdio",
+  "command": "node",
+  "args": ["${E2E_FIXTURE_DIR}/upstream-server.mjs", "--tag=${E2E_TAG}"],
+  "timeoutMs": 5000,
+  "tools": {
+    "up-echo": "echo",
+    "up-empty": "empty",
+    "up-fail": "fail",
+    "up-slow": "slow",
+    "up-reject": "reject",
+    "up-secret": "secret"
+  }
+}
